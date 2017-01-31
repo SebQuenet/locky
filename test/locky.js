@@ -10,11 +10,12 @@ var testRedis = redis.createClient();
 describe('Locky', function () {
   var createLocky, locky;
 
-  beforeEach(function () {
+  beforeEach(function (done) {
     return testRedis.keys('lock:resource*')
     .then(function (keys) {
-      if (!keys || !keys.length) return;
-      return testRedis.del(keys);
+      if (!keys || !keys.length) return done();
+      testRedis.del(keys);
+      done();
     });
   });
 
@@ -25,9 +26,9 @@ describe('Locky', function () {
     };
   });
 
-  afterEach(function () {
-    if (!locky) return;
-    return locky.close();
+  afterEach(function (done) {
+    if (!locky) return done();
+    return locky.close(done);
   });
 
   describe('constructor', function () {
@@ -284,6 +285,65 @@ describe('Locky', function () {
       return locky.close().then(function () {
         expect(locky.redis.quit).to.be.called;
         locky = null;
+      });
+    });
+  });
+
+  describe('#get locker resources', function () {
+    beforeEach(function () {
+      locky = createLocky();
+    });
+
+    it('should get all locked resources (promise use)', function (done) {
+      locky.lock({ resource: 'article1', locker: 'john' })
+      .then(function () {
+        return locky.lock({ resource: 'article2', locker: 'marc' });
+      })
+      .then(function () {
+        return locky.lock({ resource: 'article3', locker: 'john' });
+      })
+      .then(function () {
+        return locky.lock({ resource: 'article4', locker: 'john' });
+      })
+      .then(function () {
+        return locky.unlock('article3');
+      })
+      .then(function () {
+        return locky.getLockedResources();
+      })
+      .then(function (resources) {
+        expect(resources.length).to.equal(3);
+        expect(resources).to.include('article4');
+        expect(resources).to.include('article2');
+        expect(resources).to.include('article1');
+        done();
+      })
+      .catch(done);
+    });
+
+    it('should get all locked resources (callback use)', function (done) {
+      locky.lock({ resource: 'article1', locker: 'john' })
+      .then(function () {
+        return locky.lock({ resource: 'article2', locker: 'marc' });
+      })
+      .then(function () {
+        return locky.lock({ resource: 'article3', locker: 'john' });
+      })
+      .then(function () {
+        return locky.lock({ resource: 'article4', locker: 'john' });
+      })
+      .then(function () {
+        return locky.unlock('article3');
+      })
+      .then(function () {
+        locky.getLockedResources(function (err, resources) {
+          if (err) return done(err);
+          expect(resources.length).to.equal(3);
+          expect(resources).to.include('article4');
+          expect(resources).to.include('article2');
+          expect(resources).to.include('article1');
+          done();
+        });
       });
     });
   });
