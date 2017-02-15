@@ -336,7 +336,7 @@ describe('Locky', function () {
         return locky.unlock('article3');
       })
       .then(function () {
-        locky.getLockedResources(function (err, resources) {
+          locky.getLockedResources(function (err, resources) {
           if (err) return done(err);
           expect(resources.length).to.equal(3);
           expect(resources).to.include('article4');
